@@ -4,6 +4,7 @@ decorator==4.1.2
 entrypoints==0.2.3
 fancycompleter==0.8
 html5lib==1.0.1
+h5py==2.7.1
 ipykernel==4.7.0
 ipython==5.5.0
 ipython-genutils==0.2.0
