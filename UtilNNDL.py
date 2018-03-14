@@ -29,8 +29,8 @@ import librosa
 from librosa import display
 
 #Augments the dataset by creating windowed data samples 
-def create_window_data(data, labels, windows=10, window_size=512):
-    assert data.shape[0] == labels.shape[0]
+def create_window_data(data, labels, windows=10, window_size=512, time_last = True ):
+    assert data.shape[0] == labels.shape[0] 
     step = int(float(data.shape[2]-window_size)/float(windows-1))
     data_sliced = np.zeros([data.shape[0]*windows,data.shape[1],window_size])
     for t in range(data.shape[0]):
@@ -48,3 +48,95 @@ def plot_hist(vals,labels='Null',title='Null',xlabel='epochs'):
     plt.xlabel(xlabel)
     plt.legend()
     plt.show()
+
+'''
+Formats the data so there are no nans and pust it into testing and training batches
+Returns either arrays of all the data concatenated into four arrays: data and labels for test and train
+OR returns four dicts where the Key "A0xT" (x = subject number) selects one of the 9 subjects, 
+see bottom of the function for more details 
+Sample usage:
+file_path = '/home/carla/Downloads/project_datasets/project_datasets/'
+train_data, test_data, train_labels, test_labels = prepare_data(file_path, 
+                                                                num_test_samples = 50, 
+                                                                verbose= False, 
+                                                                return_all=True)
+print train_data.shape
+print train_labels.shape
+print test_data.shape
+print test_labels.shape
+
+(2108, 22, 1000)
+(2108, 4)
+(450, 22, 1000)
+(450, 4)
+'''
+def prepare_data(file_path, num_test_samples = 50, verbose= False, return_all=True, num_files = 9):
+    train_data = {}
+    test_data = {}
+    train_labels = {}
+    test_labels = {}
+    for i in range(1,num_files+1):
+        if verbose:
+            print i
+        A0it = h5py.File(file_path + 'A0{}T_slice.mat'.format(i),'r')
+        data_i = np.copy(A0it['image'])[:,:22,:]
+        labels_i = np.copy(A0it['type'])
+        labels_i = labels_i[0,0:data_i.shape[0]:1]
+        labels_i = np.asarray(labels_i, dtype=np.int32)
+        labels_i = to_categorical(labels_i-769, num_classes=4)
+
+        bad_indexes = np.unique(np.argwhere(np.isnan(data_i))[:,0])
+        if verbose:
+            print bad_indexes
+            print data_i.shape
+            print labels_i.shape
+        data_i = np.delete(data_i,bad_indexes,0)
+        labels_i = np.delete(labels_i,bad_indexes,0)
+        if verbose:
+            print data_i.shape
+            print labels_i.shape
+
+        train_data_i = data_i[:data_i.shape[0]-num_test_samples]
+        test_data_i = data_i[data_i.shape[0]-num_test_samples:]
+        train_labels_i = labels_i[:data_i.shape[0]-num_test_samples]
+        test_labels_i = labels_i[data_i.shape[0]-num_test_samples:]
+        
+        train_data['A0{}T'.format(i)] = train_data_i
+        test_data['A0{}T'.format(i)] = test_data_i
+        train_labels['A0{}T'.format(i)] = train_labels_i
+        test_labels['A0{}T'.format(i)] = test_labels_i
+        
+        if verbose:
+            print train_data['A0{}T'.format(i)].shape
+            print test_data['A0{}T'.format(i)].shape
+            print train_labels['A0{}T'.format(i)].shape
+            print test_labels['A0{}T'.format(i)].shape
+
+        if i == 1:
+            data_all = data_i
+            labels_all = labels_i
+
+            train_data_all = train_data_i
+            test_data_all = test_data_i
+            train_labels_all = train_labels_i
+            test_labels_all = test_labels_i
+        else:
+            data_all = np.vstack([data_all, data_i]) 
+            labels_all = np.concatenate([labels_all, labels_i])
+
+            train_data_all = np.vstack([train_data_all, train_data_i])  
+            test_data_all = np.vstack([test_data_all, test_data_i]) 
+            train_labels_all = np.concatenate([train_labels_all, train_labels_i]) 
+            test_labels_all = np.concatenate([test_labels_all, test_labels_i])
+    if verbose:
+        print data.keys()
+        print labels.keys()
+        print train_data_all.shape
+        print train_labels_all.shape
+    
+    if return_all:
+        #returns all the data concatenated 
+        return train_data_all, test_data_all, train_labels_all, test_labels_all
+    else:
+        #returns all the data in dict format
+        return train_data, test_data, train_labels, test_labels
