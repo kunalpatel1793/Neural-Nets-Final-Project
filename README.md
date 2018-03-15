@@ -3,6 +3,10 @@
 Resources:
 https://kupdf.com/download/long-short-term-memory-networks-with-python_5a43310ce2b6f5d926656665_pdf
 http://www.bbci.de/competition/iv/desc_2a.pdf
+https://arxiv.org/pdf/1710.00633.pdf - Multitaper Spectral Estimation with VGGnet Paper
+https://arxiv.org/pdf/1802.00308.pdf - ChronoNet
+
+
 
 Research/Ideas
 https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3396284/
