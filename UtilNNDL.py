@@ -1,35 +1,39 @@
 #File for storing utility functions for manipulation and visualization
 
 import numpy as np
-import h5py
-import tensorflow as tf
-import matplotlib.pyplot as plt
+# import h5py
+# import tensorflow as tf
+# import matplotlib.pyplot as plt
 
-import keras
-from keras.models import Sequential
-from keras.layers import Dense 
-from keras.layers import LSTM
-from keras.layers import Flatten
-from keras.utils import to_categorical
-from keras.layers import Activation
-from keras.layers import Dropout
-from keras.layers import Convolution2D
-from keras.layers import BatchNormalization
-from keras.layers import MaxPooling2D
+# import keras
+# from keras.models import Sequential
+# from keras.layers import Dense 
+# from keras.layers import LSTM
+# from keras.layers import Flatten
+# from keras.utils import to_categorical
+# from keras.layers import Activation
+# from keras.layers import Dropout
+# from keras.layers import Convolution2D
+# from keras.layers import BatchNormalization
+# from keras.layers import MaxPooling2D
 
-import kapre 
-from kapre.time_frequency import Spectrogram
+# import kapre 
+# from kapre.time_frequency import Spectrogram
 
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 plt.style.use('ggplot')
 from datetime import datetime
 now = datetime.now()
-import librosa
-from librosa import display
+# import librosa
+# from librosa import display
 
 from sklearn.metrics import confusion_matrix
 import itertools
+
+import pandas as pd
+import scipy
+import scipy.signal
 
 #Augments the dataset by creating windowed data samples 
 def create_window_data(data, labels, windows=10, window_size=512, time_last = True ):
@@ -177,3 +181,115 @@ def prepare_data(file_path, num_test_samples = 50, verbose= False, return_all=Tr
     else:
         #returns all the data in dict format
         return train_data, test_data, train_labels, test_labels
+
+def exponential_running_standardize(data, factor_new=0.001,
+                                    init_block_size=None, eps=1e-4):
+    """
+    Perform exponential running standardization. 
+    
+    Compute the exponental running mean :math:`m_t` at time `t` as 
+    :math:`m_t=\mathrm{factornew} \cdot mean(x_t) + (1 - \mathrm{factornew}) \cdot m_{t-1}`.
+    
+    Then, compute exponential running variance :math:`v_t` at time `t` as 
+    :math:`v_t=\mathrm{factornew} \cdot (m_t - x_t)^2 + (1 - \mathrm{factornew}) \cdot v_{t-1}`.
+    
+    Finally, standardize the data point :math:`x_t` at time `t` as:
+    :math:`x'_t=(x_t - m_t) / max(\sqrt{v_t}, eps)`.
+    
+    
+    Parameters
+    ----------
+    data: 2darray (time, channels)
+    factor_new: float
+    init_block_size: int
+        Standardize data before to this index with regular standardization. 
+    eps: float
+        Stabilizer for division by zero variance.
+    Returns
+    -------
+    standardized: 2darray (time, channels)
+        Standardized data.
+    """
+    df = pd.DataFrame(data)
+    meaned = df.ewm(alpha=factor_new).mean()
+    demeaned = df - meaned
+    squared = demeaned * demeaned
+    square_ewmed = squared.ewm(alpha=factor_new).mean()
+    standardized = demeaned / np.maximum(eps, np.sqrt(np.array(square_ewmed)))
+    standardized = np.array(standardized)
+    if init_block_size is not None:
+        other_axis = tuple(range(1, len(data.shape)))
+        init_mean = np.mean(data[0:init_block_size], axis=other_axis,
+                            keepdims=True)
+        init_std = np.std(data[0:init_block_size], axis=other_axis,
+                          keepdims=True)
+        init_block_standardized = (data[0:init_block_size] - init_mean) / \
+                                  np.maximum(eps, init_std)
+        standardized[0:init_block_size] = init_block_standardized
+    return standardized
+
+def bandpass_cnt(data, low_cut_hz, high_cut_hz, fs, filt_order=3, axis=0):
+    """
+     Bandpass signal applying **causal** butterworth filter of given order.
+    Parameters
+    ----------
+    data: 2d-array
+        Time x channels
+    low_cut_hz: float
+    high_cut_hz: float
+    fs: float
+    filt_order: int
+    Returns
+    -------
+    bandpassed_data: 2d-array
+        Data after applying bandpass filter.
+    """
+    if (low_cut_hz == 0 or low_cut_hz is None) and (
+                    high_cut_hz == None or high_cut_hz == fs / 2.0):
+        log.info("Not doing any bandpass, since low 0 or None and "
+                 "high None or nyquist frequency")
+        return data.copy()
+    if low_cut_hz == 0 or low_cut_hz == None:
+        log.info("Using lowpass filter since low cut hz is 0 or None")
+        return lowpass_cnt(data, high_cut_hz, fs, filt_order=filt_order, axis=axis)
+    if high_cut_hz == None or high_cut_hz == (fs / 2.0):
+        log.info(
+            "Using highpass filter since high cut hz is None or nyquist freq")
+        return highpass_cnt(data, low_cut_hz, fs, filt_order=filt_order, axis=axis)
+
+    nyq_freq = 0.5 * fs
+    low = low_cut_hz / nyq_freq
+    high = high_cut_hz / nyq_freq
+    b, a = scipy.signal.butter(filt_order, [low, high], btype='bandpass')
+    assert filter_is_stable(a), "Filter should be stable..."
+    data_bandpassed = scipy.signal.lfilter(b, a, data, axis=axis)
+    return data_bandpassed
+
+
+def filter_is_stable(a):
+    """
+    Check if filter coefficients of IIR filter are stable.
+    
+    Parameters
+    ----------
+    a: list or 1darray of number
+        Denominator filter coefficients a.
+    Returns
+    -------
+    is_stable: bool
+        Filter is stable or not.  
+    Notes
+    ----
+    Filter is stable if absolute value of all  roots is smaller than 1,
+    see [1]_.
+    
+    References
+    ----------
+    .. [1] HYRY, "SciPy 'lfilter' returns only NaNs" StackOverflow,
+       http://stackoverflow.com/a/8812737/1469195
+    """
+    assert a[0] == 1.0, (
+        "a[0] should normally be zero, did you accidentally supply b?\n"
+        "a: {:s}".format(str(a)))
+    # from http://stackoverflow.com/a/8812737/1469195
+    return np.all(np.abs(np.roots(a))<1)
