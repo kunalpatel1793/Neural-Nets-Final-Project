@@ -1,32 +1,32 @@
 #File for storing utility functions for manipulation and visualization
 
 import numpy as np
-# import h5py
-# import tensorflow as tf
-# import matplotlib.pyplot as plt
+import h5py
+import tensorflow as tf
+import matplotlib.pyplot as plt
 
-# import keras
-# from keras.models import Sequential
-# from keras.layers import Dense 
-# from keras.layers import LSTM
-# from keras.layers import Flatten
-# from keras.utils import to_categorical
-# from keras.layers import Activation
-# from keras.layers import Dropout
-# from keras.layers import Convolution2D
-# from keras.layers import BatchNormalization
-# from keras.layers import MaxPooling2D
+import keras
+from keras.models import Sequential
+from keras.layers import Dense 
+from keras.layers import LSTM
+from keras.layers import Flatten
+from keras.utils import to_categorical
+from keras.layers import Activation
+from keras.layers import Dropout
+from keras.layers import Convolution2D
+from keras.layers import BatchNormalization
+from keras.layers import MaxPooling2D
 
-# import kapre 
-# from kapre.time_frequency import Spectrogram
+import kapre 
+from kapre.time_frequency import Spectrogram
 
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 plt.style.use('ggplot')
 from datetime import datetime
 now = datetime.now()
-# import librosa
-# from librosa import display
+import librosa
+from librosa import display
 
 from sklearn.metrics import confusion_matrix
 import itertools
