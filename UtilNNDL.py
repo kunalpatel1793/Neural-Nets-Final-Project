@@ -1,6 +1,7 @@
 #File for storing utility functions for manipulation and visualization
 
 import numpy as np
+import os
 import h5py
 import tensorflow as tf
 import matplotlib.pyplot as plt
@@ -293,3 +294,18 @@ def filter_is_stable(a):
         "a: {:s}".format(str(a)))
     # from http://stackoverflow.com/a/8812737/1469195
     return np.all(np.abs(np.roots(a))<1)
+
+def load_all_data(path='./Best Models/Variables/'):
+    res = {}
+    files = os.listdir(path)
+    for f in files:
+        name = f[:-4]
+        var = np.load(path+f)
+        tokens = name.split('_')
+        dataset = '_'.join(tokens[2:])
+        if tokens[1] not in res.keys(): res[tokens[1]] = {}
+        if tokens[0] not in res[tokens[1]].keys(): res[tokens[1]][tokens[0]]={}
+        if dataset not in res[tokens[1]][tokens[0]].keys(): res[tokens[1]][tokens[0]][dataset] = var
+        else: print("Files Overlapped halp")
+
+    return res
